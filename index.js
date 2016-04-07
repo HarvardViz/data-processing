@@ -1,78 +1,134 @@
+var path = require('path');
 var fs = require('fs');
 var csv = require('csv-parse');
 var parse = require('csv-parse/lib/sync');
 var moment = require('moment');
 var gju = require('geojson-utils');
 
+process.stdout.write('[STARTING]\n');
+
+
+//--------------------------------------------------------------------------------------------------
+// Load Raw Data
+//--------------------------------------------------------------------------------------------------
+
+process.stdout.write('    Loading raw data... ');
+
 // Import GIS data.
 require.extensions[ '.geojson' ] = require.extensions[ '.json' ];
 function requireJSON(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 };
+var geo_neighborhoods = requireJSON('data_sources/BOUNDARY_Neighborhoods.geojson');
 
-var geo_neighborhoods = requireJSON('data_sources/cambridgegis/Boundary/CDD_Neighborhoods/BOUNDARY_CDDNeighborhoods.geojson');
-// Import raw data.
-var data_accidents_2010_2013 = parse(fs.readFileSync('data_sources/ACCIDENT-2010-2013.csv', 'utf8'), { columns: true });
-var data_accidents_2014 = parse(fs.readFileSync('data_sources/ACCIDENT-2014.csv', 'utf8'), { columns: true });
-var data_weather = parse(fs.readFileSync('data_sources/weather-2010-2014.csv', 'utf8'), { columns: true });
+// Import other data.
+var data_accidents_2010_2013 = parse(fs.readFileSync('data_sources/ACCIDENT_2010-2013.csv', 'utf8'), { columns: true });
+var data_accidents_2014 = parse(fs.readFileSync('data_sources/ACCIDENT_2014.csv', 'utf8'), { columns: true });
+var data_weather_2010_2014 = parse(fs.readFileSync('data_sources/WEATHER_2010-2014.csv', 'utf8'), { columns: true });
+var data_citations_2010_2014 = parse(fs.readFileSync('data_sources/CITATION_2010-2014.csv', 'utf8'), { columns: true });
 
-/*
- * Combine accidents data and transform.
- */
-function transformAccidentData(d) {
-    return {
+process.stdout.write('done\n');
+
+
+//--------------------------------------------------------------------------------------------------
+// Accidents
+//--------------------------------------------------------------------------------------------------
+
+process.stdout.write('    Processing accident data... ');
+
+var data_accidents = data_accidents_2010_2013.concat(data_accidents_2014).map(function(d) {
+    // Build the accident data object.
+    var obj = {
         coordinates: [ parseFloat(d[ 'Longitude' ]), parseFloat(d[ 'Latitude' ]) ],
-        location: d[ 'Location' ] || d[ 'LOCATION' ],
+        location: (d[ 'Location' ] || d[ 'LOCATION' ]).trim(),
         date: moment(d[ 'Date Time' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
         day: d[ 'Day Of Week' ] || d[ 'Day of Week' ],
         object1: d[ 'Object 1' ],
-        object2: d[ 'Object 2' ]
+        object2: d[ 'Object 2' ],
+        neighborhood: null
     };
-}
-var data_accidents = data_accidents_2010_2013.map(transformAccidentData)
-    .concat(data_accidents_2014.map(transformAccidentData));
-
-// Precalculate choropleth values for neighborhoods and embed in feature properties.
-var _numAccidents = {};
-var _maxAccidents = 0;
-geo_neighborhoods.features.forEach(function(d) {
-    var id = d.properties[ 'N_HOOD' ];
-    _numAccidents[ id ] = 0;
-});
-data_accidents.forEach(function(d) {
-    var point = { type: 'Point', coordinates: d.coordinates };
+    // Determine in which neighborhood this accident occurred.
+    var point = { type: 'Point', coordinates: obj.coordinates };
     for (var i = 0; i < geo_neighborhoods.features.length; i++) {
         var feature = geo_neighborhoods.features[ i ];
         var polygon = feature.geometry;
         if (gju.pointInPolygon(point, polygon)) {
-            var id = feature.properties[ 'N_HOOD' ];
-            if (++_numAccidents[ id ] > _maxAccidents) {
-                _maxAccidents = _numAccidents[ id ];
-            }
-            return;
+            obj.neighborhood = feature.properties[ 'N_HOOD' ];
+            break;
         }
     }
-    //console.log('accident not in neighborhood');
+    // Return the accident data object.
+    return obj;
 });
-this.accidentLevels = {};
-geo_neighborhoods.features.forEach(function(d) {
-    var id = d.properties[ 'N_HOOD' ];
-    d.properties.accidentRating = (_numAccidents[ id ] / _maxAccidents) || 0;
-});
-console.log(geo_neighborhoods.features[ 0 ].properties);
-////////TODO:write to geojson
+data_accidents.sort(function(a, b) { return a.date.getTime() - b.date.getTime(); });
 
-// Compile accidents data.
-// - Relate weather data.
+var data_accidents_output_path = path.resolve(__dirname, 'data_output/cambridge_accidents_2010-2014.json');
+fs.writeFileSync(data_accidents_output_path, JSON.stringify(data_accidents));
 
-data_weather = data_weather.map(function(d) {
-    console.log(d);
+process.stdout.write('done\n');
+process.stdout.write('        (' + data_accidents_output_path + ')\n');
+
+
+//--------------------------------------------------------------------------------------------------
+// Citations
+//--------------------------------------------------------------------------------------------------
+
+var CITATION_LABELS = {
+    SPEEDING: 'Speeding',
+    YIELD: 'Failure to Yield'
+};
+var CITATION_MAPPING = {
+    'SPEEDING * C90 S17': CITATION_LABELS.SPEEDING,
+    'SPEEDING IN VIOL SPECIAL REGULATION * C90 S18': CITATION_LABELS.SPEEDING,
+    'STOP/YIELD, FAIL TO * C89 S9': CITATION_LABELS.YIELD,
+    'YIELD AT INTERSECTION, FAIL * C89 S8': CITATION_LABELS.YIELD/*,
+    'NEGLIGENT OPERATION OF MOTOR VEHICLE c90 S24': ,
+    'TURN, IMPROPER * C90 S14': '',
+    'VIOLATION OF POSTED SIGN': ''*/
+};
+
+var data_citations = data_citations_2010_2014.map(function(d) {
+/*
+'Citation Number': 'M7461813       ',
+'Date Time Issued': '01/01/2010 01:51:00 AM',
+'Street Number': '',
+'Street Name': 'MASSACHUSETTS AVE             ',
+'Cross Street': 'RINDGE AVE                    ',
+'Charge Code': '90/24/J        ',
+'Charge Description': 'OUI-LIQUOR C90 S24                                '
+*/
+    return {
+        date: moment(d[ 'Date Time Issued' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
+        label: CITATION_LABELS[ d[ 'Charge Description' ] ]
+    };
+    //TODO: get lat long with cross street?
+})/*.filter(function(d) {
+    return d.label !== undefined;
+})*/;
+//TODO: sort
+
+
+//--------------------------------------------------------------------------------------------------
+// Weather
+//--------------------------------------------------------------------------------------------------
+
+process.stdout.write('    Processing weather data... ');
+
+var data_weather = data_weather_2010_2014.map(function(d) {
     var events = d[ ' Events' ].split('-');
     return {
         date: moment(d[ 'EST' ], 'YYYY-M-D').toDate(),
-        // Max TemperatureF,Mean TemperatureF,Min TemperatureF
-        // Max VisibilityMiles, Mean VisibilityMiles, Min VisibilityMiles
-        precipInches: d[ 'PrecipitationIn' ],//this is sometimes 'T', what does this mean?
+        temperature: {
+            min: parseInt(d[ 'Min TemperatureF' ], 10),
+            max: parseInt(d[ 'Max TemperatureF' ], 10),
+            mean: parseInt(d[ 'Mean TemperatureF' ], 10)
+        },
+        visibility_Miles: {
+            min: parseInt(d[ ' Min VisibilityMiles' ], 10),
+            max: parseInt(d[ ' Max VisibilityMiles' ], 10),
+            mean: parseInt(d[ ' Mean VisibilityMiles' ], 10)
+        },
+        precipitation_Inches: parseInt(d[ 'PrecipitationIn' ], 10) || 0,
         events: {
             fog: events.indexOf('Fog') !== -1,
             rain: events.indexOf('Rain') !== -1,
@@ -82,4 +138,13 @@ data_weather = data_weather.map(function(d) {
         }
     };
 });
-console.log(data_weather[ 0 ]);
+data_weather.sort(function(a, b) { return a.date.getTime() - b.date.getTime(); });
+
+var data_weather_output_path = path.resolve(__dirname, 'data_output/cambridge_weather_2010-2014.json');
+fs.writeFileSync(data_weather_output_path, JSON.stringify(data_weather));
+
+process.stdout.write('done\n');
+process.stdout.write('        (' + data_weather_output_path + ')\n');
+
+
+process.stdout.write('[COMPLETE]\n');
