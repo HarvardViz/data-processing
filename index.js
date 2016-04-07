@@ -37,10 +37,17 @@ function parseSunset(year, text) {
                     c = c.trim();
                     if (!c) { return; }
                     var values = c.split(' ');
+                    var date = new Date(year, month_index, day_index + 1);
+                    var sunriseTime = moment(values[ 0 ], 'HHmm').toDate();
+                    var sunriseDate = new Date(date.getTime());
+                    sunriseDate.setHours(sunriseTime.getHours(), sunriseTime.getMinutes());
+                    var sunsetTime = moment(values[ 1 ], 'HHmm').toDate();
+                    var sunsetDate = new Date(date.getTime());
+                    sunsetDate.setHours(sunsetTime.getHours(), sunsetTime.getMinutes());
                     data.push({
-                        date: new Date(year, month_index, day_index + 1),
-                        sunrise: moment(values[ 0 ], 'HHmm').format('HH:mm'),
-                        sunset: moment(values[ 1 ], 'HHmm').format('HH:mm')
+                        date: date,
+                        sunrise: sunriseDate,
+                        sunset: sunsetDate
                     });
                 });
         });
