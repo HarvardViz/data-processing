@@ -15,11 +15,7 @@ process.stdout.write('[STARTING]\n');
 process.stdout.write('    Loading raw data... ');
 
 // Import GIS data.
-require.extensions[ '.geojson' ] = require.extensions[ '.json' ];
-function requireJSON(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
-};
-var geo_neighborhoods = requireJSON('data_sources/BOUNDARY_Neighborhoods.geojson');
+var geo_neighborhoods = JSON.parse(fs.readFileSync('data_sources/BOUNDARY_Neighborhoods.geojson', 'utf8'));
 
 // Import CSV data.
 var data_accidents_2010_2013 = parse(fs.readFileSync('data_sources/ACCIDENT_2010-2013.csv', 'utf8'), { columns: true });
