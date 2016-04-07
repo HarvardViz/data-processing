@@ -194,7 +194,7 @@ var data_citations = data_citations_2010_2014.map(function(d) {
     };
     //TODO: get lat long with cross street?
 }).filter(function(d) {
-    return d.label !== undefined;
+    return d.type !== undefined;
 });
 data_citations.sort(function(a, b) { return a.date.getTime() - b.date.getTime(); });
 
