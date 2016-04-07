@@ -12,16 +12,20 @@ process.stdout.write('[STARTING]\n');
 // Load Raw Data
 //--------------------------------------------------------------------------------------------------
 
-process.stdout.write('    Loading raw data... ');
+process.stdout.write('    Loading raw data...\n');
 
 // Import GIS data.
+process.stdout.write('        Loading GEOJSON data... ');
 var geo_neighborhoods = JSON.parse(fs.readFileSync('data_sources/BOUNDARY_Neighborhoods.geojson', 'utf8'));
+process.stdout.write('done\n');
 
 // Import CSV data.
+process.stdout.write('        Loading CSV data...');
 var data_accidents_2010_2013 = parse(fs.readFileSync('data_sources/ACCIDENT_2010-2013.csv', 'utf8'), { columns: true });
 var data_accidents_2014 = parse(fs.readFileSync('data_sources/ACCIDENT_2014.csv', 'utf8'), { columns: true });
 var data_weather_2010_2014 = parse(fs.readFileSync('data_sources/WEATHER_2010-2014.csv', 'utf8'), { columns: true });
 var data_citations_2010_2014 = parse(fs.readFileSync('data_sources/CITATION_2010-2014.csv', 'utf8'), { columns: true });
+process.stdout.write('done\n');
 
 // Import text data.
 function parseSunset(year, text) {
@@ -49,12 +53,12 @@ function parseSunset(year, text) {
         });
     return data;
 }
+process.stdout.write('        Loading TXT data...');
 var data_sunset_2010 = parseSunset(2010, fs.readFileSync('data_sources/SUNSET_2010.txt', 'utf8'));
 var data_sunset_2011 = parseSunset(2011, fs.readFileSync('data_sources/SUNSET_2011.txt', 'utf8'));
 var data_sunset_2012 = parseSunset(2012, fs.readFileSync('data_sources/SUNSET_2012.txt', 'utf8'));
 var data_sunset_2013 = parseSunset(2013, fs.readFileSync('data_sources/SUNSET_2013.txt', 'utf8'));
 var data_sunset_2014 = parseSunset(2014, fs.readFileSync('data_sources/SUNSET_2014.txt', 'utf8'));
-
 process.stdout.write('done\n');
 
 
@@ -95,45 +99,6 @@ fs.writeFileSync(data_accidents_output_path, JSON.stringify(data_accidents));
 
 process.stdout.write('done\n');
 process.stdout.write('        > ' + data_accidents_output_path + '\n');
-
-
-//--------------------------------------------------------------------------------------------------
-// Citations
-//--------------------------------------------------------------------------------------------------
-
-var CITATION_LABELS = {
-    SPEEDING: 'Speeding',
-    YIELD: 'Failure to Yield'
-};
-var CITATION_MAPPING = {
-    'SPEEDING * C90 S17': CITATION_LABELS.SPEEDING,
-    'SPEEDING IN VIOL SPECIAL REGULATION * C90 S18': CITATION_LABELS.SPEEDING,
-    'STOP/YIELD, FAIL TO * C89 S9': CITATION_LABELS.YIELD,
-    'YIELD AT INTERSECTION, FAIL * C89 S8': CITATION_LABELS.YIELD/*,
-    'NEGLIGENT OPERATION OF MOTOR VEHICLE c90 S24': ,
-    'TURN, IMPROPER * C90 S14': '',
-    'VIOLATION OF POSTED SIGN': ''*/
-};
-
-var data_citations = data_citations_2010_2014.map(function(d) {
-/*
-'Citation Number': 'M7461813       ',
-'Date Time Issued': '01/01/2010 01:51:00 AM',
-'Street Number': '',
-'Street Name': 'MASSACHUSETTS AVE             ',
-'Cross Street': 'RINDGE AVE                    ',
-'Charge Code': '90/24/J        ',
-'Charge Description': 'OUI-LIQUOR C90 S24                                '
-*/
-    return {
-        date: moment(d[ 'Date Time Issued' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
-        label: CITATION_LABELS[ d[ 'Charge Description' ] ]
-    };
-    //TODO: get lat long with cross street?
-})/*.filter(function(d) {
-    return d.label !== undefined;
-})*/;
-//TODO: sort
 
 
 //--------------------------------------------------------------------------------------------------
@@ -191,6 +156,53 @@ fs.writeFileSync(data_weather_output_path, JSON.stringify(data_weather));
 
 process.stdout.write('done\n');
 process.stdout.write('        > ' + data_weather_output_path + '\n');
+
+
+//--------------------------------------------------------------------------------------------------
+// Citations
+//--------------------------------------------------------------------------------------------------
+
+process.stdout.write('    Processing citation data... ');
+
+var CITATION_TYPES = {
+    SPEEDING: 'Speeding',
+    YIELD: 'Failure to Yield'
+};
+var CITATION_TYPE_MAPPING = {
+    'SPEEDING * C90 S17': CITATION_TYPES.SPEEDING,
+    'SPEEDING IN VIOL SPECIAL REGULATION * C90 S18': CITATION_TYPES.SPEEDING,
+    'STOP/YIELD, FAIL TO * C89 S9': CITATION_TYPES.YIELD,
+    'YIELD AT INTERSECTION, FAIL * C89 S8': CITATION_TYPES.YIELD/*,
+    'NEGLIGENT OPERATION OF MOTOR VEHICLE c90 S24': ,
+    'TURN, IMPROPER * C90 S14': '',
+    'VIOLATION OF POSTED SIGN': ''*/
+};
+
+var data_citations = data_citations_2010_2014.map(function(d) {
+/*
+'Citation Number': 'M7461813       ',
+'Date Time Issued': '01/01/2010 01:51:00 AM',
+'Street Number': '',
+'Street Name': 'MASSACHUSETTS AVE             ',
+'Cross Street': 'RINDGE AVE                    ',
+'Charge Code': '90/24/J        ',
+'Charge Description': 'OUI-LIQUOR C90 S24                                '
+*/
+    return {
+        date: moment(d[ 'Date Time Issued' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
+        type: CITATION_TYPE_MAPPING[ d[ 'Charge Description' ].trim() ]
+    };
+    //TODO: get lat long with cross street?
+}).filter(function(d) {
+    return d.label !== undefined;
+});
+data_citations.sort(function(a, b) { return a.date.getTime() - b.date.getTime(); });
+
+var data_citations_output_path = path.resolve(__dirname, 'data_output/cambridge_citations_2010-2014.json');
+fs.writeFileSync(data_citations_output_path, JSON.stringify(data_citations));
+
+process.stdout.write('done\n');
+process.stdout.write('        > ' + data_citations_output_path + '\n');
 
 
 process.stdout.write('[COMPLETE]\n');
