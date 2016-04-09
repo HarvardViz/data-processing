@@ -71,10 +71,10 @@ process.stdout.write('    Processing accident data... ');
 var data_accidents = data_accidents_2010_2013.concat(data_accidents_2014).map(function(d) {
     // Build the accident data object.
     var obj = {
-        coordinates: [ parseFloat(d[ 'Longitude' ]), parseFloat(d[ 'Latitude' ]) ],
-        location: (d[ 'Location' ] || d[ 'LOCATION' ]).trim(),
         date: moment(d[ 'Date Time' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
-        day: d[ 'Day Of Week' ] || d[ 'Day of Week' ],
+        coordinates: [ parseFloat(d[ 'Longitude' ]), parseFloat(d[ 'Latitude' ]) ],
+        streetName: d[ 'Steet Name' || 'Street Name' ] || null,
+        crossStreet: d[ 'Cross Street' ] || null,
         object1: d[ 'Object 1' ],
         object2: d[ 'Object 2' ],
         neighborhood: null
