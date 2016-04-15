@@ -5,6 +5,7 @@ var parse = require('csv-parse/lib/sync');
 var moment = require('moment');
 var gju = require('geojson-utils');
 
+
 process.stdout.write('[STARTING]\n');
 
 
@@ -68,17 +69,50 @@ process.stdout.write('done\n');
 
 process.stdout.write('    Processing accident data... ');
 
+function _accidentType(objDesc) {
+
+    switch (objDesc) {
+        case 'Auto':
+        case 'Taxi':
+        case 'Truck':
+        case 'Van':
+        case 'School Bus':
+        case 'MBTA Bus':
+        case 'Bus (Other)':
+            return 'Auto';
+        case 'Motorcycle':
+        case 'Moped':
+            return 'Motorcycle/Moped';
+        case 'Bicycle':
+            return 'Bicycle';
+        case 'Pedestrian':
+            return 'Pedestrian';
+        case 'Parked Vehicle':
+            return 'Parked Vehicle';
+        case 'Fixed Object':
+            return 'Fixed Object';
+        case 'Miscellaneous':
+            return 'Miscellaneous';
+        default:
+            return null;
+    }
+}
+
 var data_accidents = data_accidents_2010_2013.concat(data_accidents_2014).map(function(d) {
+
+    var obj1 = _accidentType(d[ 'Object 1' ]);
+    var obj2 = _accidentType(d[ 'Object 2' ]);
+
     // Build the accident data object.
     var obj = {
         date: moment(d[ 'Date Time' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
         coordinates: [ parseFloat(d[ 'Longitude' ]), parseFloat(d[ 'Latitude' ]) ],
         streetName: d[ 'Steet Name' || 'Street Name' ] || null,
         crossStreet: d[ 'Cross Street' ] || null,
-        object1: d[ 'Object 1' ],
-        object2: d[ 'Object 2' ],
-        neighborhood: null
+        neighborhood: null,
+        accidentType: obj1 === 'Auto' ? obj2 : (obj2 === 'Auto' ? obj1 : null)
     };
+
     // Determine in which neighborhood this accident occurred.
     var point = { type: 'Point', coordinates: obj.coordinates };
     for (var i = 0; i < geo_neighborhoods.features.length; i++) {
