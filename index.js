@@ -25,7 +25,7 @@ process.stdout.write('        Loading CSV data...');
 var data_accidents_2010_2013 = parse(fs.readFileSync('data_sources/ACCIDENT_2010-2013.csv', 'utf8'), { columns: true });
 var data_accidents_2014 = parse(fs.readFileSync('data_sources/ACCIDENT_2014.csv', 'utf8'), { columns: true });
 var data_weather_2010_2014 = parse(fs.readFileSync('data_sources/WEATHER_2010-2014.csv', 'utf8'), { columns: true });
-var data_citations_2010_2014 = parse(fs.readFileSync('data_sources/CITATION_2010-2014.csv', 'utf8'), { columns: true });
+var data_citations_2010_2014 = parse(fs.readFileSync('data_sources/CITATION_CLEAN_2010-2014.csv', 'utf8'), { columns: true });
 process.stdout.write('done\n');
 
 // Import text data.
@@ -125,6 +125,10 @@ var data_accidents = data_accidents_2010_2013.concat(data_accidents_2014).map(fu
     }
     // Return the accident data object.
     return obj;
+
+// Filter out null accident types.
+}).filter(function(d) {
+    return d.accidentType != null;
 });
 data_accidents.sort(function(a, b) { return a.date.getTime() - b.date.getTime(); });
 
@@ -198,38 +202,14 @@ process.stdout.write('        > ' + data_weather_output_path + '\n');
 
 process.stdout.write('    Processing citation data... ');
 
-var CITATION_TYPES = {
-    SPEEDING: 'Speeding',
-    YIELD: 'Failure to Yield'
-};
-var CITATION_TYPE_MAPPING = {
-    'SPEEDING * C90 S17': CITATION_TYPES.SPEEDING,
-    'SPEEDING IN VIOL SPECIAL REGULATION * C90 S18': CITATION_TYPES.SPEEDING,
-    'STOP/YIELD, FAIL TO * C89 S9': CITATION_TYPES.YIELD,
-    'YIELD AT INTERSECTION, FAIL * C89 S8': CITATION_TYPES.YIELD/*,
-    'NEGLIGENT OPERATION OF MOTOR VEHICLE c90 S24': ,
-    'TURN, IMPROPER * C90 S14': '',
-    'VIOLATION OF POSTED SIGN': ''*/
-};
-
 var data_citations = data_citations_2010_2014.map(function(d) {
-/*
-'Citation Number': 'M7461813       ',
-'Date Time Issued': '01/01/2010 01:51:00 AM',
-'Street Number': '',
-'Street Name': 'MASSACHUSETTS AVE             ',
-'Cross Street': 'RINDGE AVE                    ',
-'Charge Code': '90/24/J        ',
-'Charge Description': 'OUI-LIQUOR C90 S24                                '
-*/
+
     return {
-        date: moment(d[ 'Date Time Issued' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
-        type: CITATION_TYPE_MAPPING[ d[ 'Charge Description' ].trim() ]
+        date: moment(d[ 'DateTimeIssued' ], 'MM/DD/YYYY').toDate(),
+        type: d[ 'ChargeDescription' ] || null
     };
-    //TODO: get lat long with cross street?
-}).filter(function(d) {
-    return d.type !== undefined;
 });
+
 data_citations.sort(function(a, b) { return a.date.getTime() - b.date.getTime(); });
 
 var data_citations_output_path = path.resolve(__dirname, 'data_output/cambridge_citations_2010-2014.json');
