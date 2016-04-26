@@ -39,10 +39,10 @@ function parseSunset(year, text) {
                     if (!c) { return; }
                     var values = c.split(' ');
                     var date = new Date(year, month_index, day_index + 1);
-                    var sunriseTime = moment(values[ 0 ], 'HHmm').toDate();
+                    var sunriseTime = moment.utc(values[ 0 ], 'HHmm').toDate();
                     var sunriseDate = new Date(date.getTime());
                     sunriseDate.setHours(sunriseTime.getHours(), sunriseTime.getMinutes());
-                    var sunsetTime = moment(values[ 1 ], 'HHmm').toDate();
+                    var sunsetTime = moment.utc(values[ 1 ], 'HHmm').toDate();
                     var sunsetDate = new Date(date.getTime());
                     sunsetDate.setHours(sunsetTime.getHours(), sunsetTime.getMinutes());
                     data.push({
@@ -105,7 +105,7 @@ var data_accidents = data_accidents_2010_2013.concat(data_accidents_2014).map(fu
 
     // Build the accident data object.
     var obj = {
-        date: moment(d[ 'Date Time' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
+        date: moment.utc(d[ 'Date Time' ], 'MM/DD/YYYY HH:mm:ss A').toDate(),
         coordinates: [ parseFloat(d[ 'Longitude' ]), parseFloat(d[ 'Latitude' ]) ],
         streetName: d[ 'Steet Name' || 'Street Name' ] || null,
         crossStreet: d[ 'Cross Street' ] || null,
@@ -155,13 +155,13 @@ var data_sunset = [
 ].reduce(function(a, b) { return a.concat(b); }, []);
 var data_sunset_lookup = {};
 data_sunset.forEach(function(d) {
-    data_sunset_lookup[ moment(d.date).format('YYYY-MM-DD') ] = d;
+    data_sunset_lookup[ moment.utc(d.date).format('YYYY-MM-DD') ] = d;
 });
 
 // Process the weather data.
 var data_weather = data_weather_2010_2014.map(function(d) {
-    var date = moment(d[ 'EST' ], 'YYYY-M-D').toDate();
-    var d_sunset = data_sunset_lookup[ moment(date).format('YYYY-MM-DD') ];
+    var date = moment.utc(d[ 'EST' ], 'YYYY-M-D').toDate();
+    var d_sunset = data_sunset_lookup[ moment.utc(date).format('YYYY-MM-DD') ];
     var events = d[ ' Events' ].split('-');
     return {
         date: date,
@@ -205,7 +205,7 @@ process.stdout.write('    Processing citation data... ');
 var data_citations = data_citations_2010_2014.map(function(d) {
 
     return {
-        date: moment(d[ 'DateTimeIssued' ], 'MM/DD/YYYY').toDate(),
+        date: moment.utc(d[ 'DateTimeIssued' ], 'MM/DD/YYYY').toDate(),
         type: d[ 'ChargeDescription' ] || null
     };
 });

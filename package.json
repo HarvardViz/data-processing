@@ -9,7 +9,8 @@
   "author": "Kyle Maguire <kylepixel@gmail.com>",
   "dependencies": {
     "csv-parse": "^1.0.2",
+    "geojson-utils": "^1.1.0",
     "moment": "^2.12.0",
-    "geojson-utils": "^1.1.0"
+    "moment-timezone": "^0.5.3"
   }
 }
